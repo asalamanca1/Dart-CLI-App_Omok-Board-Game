@@ -3,37 +3,31 @@ import 'dart:convert';
 import 'dart:async';
 import 'ResponseParser.dart';
 import 'dart:io';
-import 'Board.dart';
 
-// DART NOTES: as to type cast is: true if the object has the specified type;
-// similar to instanceof of Java is!: False if the object has the specified type
-// Use ?: to assign a value based on a Boolean expression Consider using ?? if
-// the Boolean expression tests for null cascade notation: Allows to make a
-// sequence of operations on the same object. Conditional spread(?...): spread
-// only if the collection is not null. addressLetter(name,  {street, number,
-// city = 'El Paso', state = 'TX', zip})  ==>named parameters inside {}
-// addressLetter('CS', street: 'West University Ave.', number: 500, city: 'El
-// Paso', state: 'TX', zip: '79968’); a closure is a function object that has
-// access to variables in its lexical scope, even when the function is used
-// outside of its original scope. Higher-order functions: functions that take
-// functions as arguments, return a function as the result, or do both. Call
-// synchronously with the await keyword Call asynchronously with 'then' and
-// later consume the Future object. Isolate: worker process (similar to thread)
-// but does not share memory with the process that spawned it -- it is isolated
-// and has its own memory heap. Generators are functions that are used to
-// generate values in a collection in a lazy fashion. AKA CONSTRUCTORS FOR
-// ATTRIBUTES, Synchronous: syntactic sugar for producing iterables AKA lists,
-// sets asynchronous generators: Return a Stream (from dart:async) providing a
-// sequence of events, either data or error events This class is meant to
-// connect to the different url servers: /info, /new, and /play
+///
+/// WebClient provides methods to interact with the game's backend web service.
+/// It supports fetching game information, starting new games, and making moves within a game.
+///
+/// Authors: Andre Salamanca, Fernando Muñoz
 class WebClient {
+  /// The base URL of the game's web service.
   String baseUrl;
-  // List <int?> cpu_stones = [null, null];
 
+  /// An instance of [ResponseParser] to handle parsing of responses from the web service.
   ResponseParser responseParser = new ResponseParser();
 
+  /// Constructs a [WebClient] with the given [baseUrl].
   WebClient(this.baseUrl);
 
+  /// Fetches game information from the web service.
+  ///
+  /// Sends a GET request to the `${baseUrl}/info` endpoint and parses the response.
+  ///
+  /// Returns:
+  /// A dynamic object containing the parsed game information.
+  ///
+  /// Throws:
+  /// An [Exception] if the request fails or the response cannot be parsed.
   Future<dynamic> getInfo() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/info'));
@@ -44,8 +38,18 @@ class WebClient {
     }
   }
 
+  /// Starts a new game with the specified strategy.
+  ///
+  /// Parameters:
+  /// - [strategy]: The game strategy to use. `1` for smart strategy, `2` for random.
+  ///
+  /// Returns:
+  /// The game session ID (`pid`) as a [String].
+  ///
+  /// Throws:
+  /// An [Exception] if the request fails.
   Future<dynamic> getNew(int strategy) async {
-    //smart strategy
+    /// smart strategy
     if (strategy == 1) {
       var newGameSmart = "new/index.php?strategy=Smart";
       var uri = Uri.parse(baseUrl + newGameSmart);
@@ -53,8 +57,8 @@ class WebClient {
       var info = json.decode(response.body);
 
       var pid = info['pid'];
-      stdout.write("PID: " + pid + "\n");
-      return //random strategy
+     
+      return /// random strategy
           pid;
     } else {
       var newGameRandom = "new/index.php?strategy=Random";
@@ -66,32 +70,72 @@ class WebClient {
     }
   }
 
+  /// Sends a move to the web service and gets the game's current state.
+  ///
+  /// Parameters:
+  /// - [x]: The x-coordinate of the move.
+  /// - [y]: The y-coordinate of the move.
+  /// - [playerSymbol]: The symbol of the player making the move.
+  /// - [pid]: The game session ID.
+  ///
+  /// Returns:
+  /// A dynamic object containing the response from the web service, which may include
+  /// the current game state, any winning conditions, and the next move if applicable.
+  ///
+  /// Throws:
+  /// An [Exception] if the request fails or the response cannot be parsed.
   Future<dynamic> getPlay(int x, int y, String playerSymbol, String pid) async {
     try {
       var move = "play/?pid=$pid&x=$x&y=$y";
       var uri = Uri.parse(baseUrl + move);
       var response = await http.get(uri);
+      /// This should be before trying to parse the body
       _checkAndThrowIfNotSuccessful(
-          response); // This should be before trying to parse the body
+          response); 
       var info = json.decode(response.body);
-      if (info != null && info.containsKey('move')) {
-        // Check if 'move' key exists
+
+      
+      if (info != null) {
+        /// if we dont have a 'move', it means the human player won
+        if (!info.containsKey('move')) {
+          /// human player won
+          var ack_move = info['ack_move'];
+          var x = ack_move['x'];
+          var y = ack_move['y'];
+          var winningRow = ack_move['row'];
+          /// return list length of 10
+          return winningRow;
+        }
         var cpu_move = info['move'];
-        var cpu_x = cpu_move['x'];
-        var cpu_y = cpu_move['y'];
-        List<int?> cpu_stones = [cpu_x, cpu_y];
-        return cpu_stones; // Correctly return the list of integers
-      } else {
-        throw Exception('Move data not found in response');
+        /// cpu player won
+        /// if row is not empty, return winning row and cpu stones, length of 3
+        if (!cpu_move['row'].isEmpty) {
+          /// cpu player won
+          var cpu_x = cpu_move['x'];
+          var cpu_y = cpu_move['y'];
+          List<int?> cpu_stones = [cpu_x + 1, cpu_y + 1];
+          var winningRow = cpu_move['row'];
+          List<dynamic> stones = [cpu_stones, winningRow, true];
+          return stones;
+        }
+        if (cpu_move['isDraw'] == true) {
+          List<dynamic> stones = [true]; // Tie
+          return stones; 
+        } else {
+          /// else row is empty, return cpu stones, length of 2
+          /// if we have both, it means no one has won yet
+          var cpu_x = cpu_move['x'];
+          var cpu_y = cpu_move['y'];
+          List<int?> cpu_stones = [cpu_x + 1, cpu_y + 1];
+          return cpu_stones;
+        }
       }
     } catch (e) {
       throw Exception('Failed to make a play: $e');
     }
   }
 
-  // void set_CPU_Stones(int x, int y) {   cpu_stones[0] = x;   cpu_stones[1] = y;
-  // }    List <int?> get_CPU_Stones() {     return cpu_stones;    }
-
+  /// Checks if the HTTP response was successful and throws an exception if not.
   void _checkAndThrowIfNotSuccessful(http.Response response) {
     if (response.statusCode != 200) {
       throw http.ClientException(

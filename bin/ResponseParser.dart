@@ -1,29 +1,23 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-//This class is meant to parse json response objects from server urls into strings
-
+/// Response parser parses the JSON response from the game service
+/// URL. 
+/// 
+/// Author: Andre Salamanca
 class ResponseParser {
+  /// The raw response from the server. 
   dynamic response;
+
+  /// Extracted information from the response. 
   String? info;
 
+  /// Constructs a `ResponseParser`.
   ResponseParser();
 
-  // String parseInfo(dynamic response){
-  //   return json.decode(response.body);
-  // }
-
+  /// Parses a given JSON [responseBody] and returns a map.
   Map<String, dynamic> parseInfo(String responseBody) {
     return json.decode(responseBody);
   }
 
-  String parseNew() {
-    // TODO: implement parseNew
-    return '';
-  }
-
-  String parsePlay() {
-    // TODO: implement parsePlay
-    return '';
-  }
 }
